@@ -1,28 +1,58 @@
-import express from 'express';
-import cors from 'cors';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import db from './src/db.js';
+import express from "express";
+import cors from "cors";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import db from "./src/db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
 app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({limit:"2mb"}));
+app.use(express.static(path.join(__dirname,"public")));
 
-app.get('/api/health', (_, res) => res.json({ ok:true, service:'LifeBridge Business MOS' }));
-app.get('/api/dashboard', (_, res) => {
-  const companies = db.prepare('SELECT COUNT(*) n FROM companies').get().n;
-  const customers = db.prepare('SELECT COUNT(*) n FROM customers').get().n;
-  const invoices = db.prepare('SELECT COUNT(*) n FROM invoices').get().n;
-  const products = db.prepare('SELECT COUNT(*) n FROM products').get().n;
-  res.json({ companies, customers, invoices, products, currency:'INR' });
+const ok=(res,data,status=200)=>res.status(status).json({ok:true,data});
+const fail=(res,message,status=400)=>res.status(status).json({ok:false,error:message});
+
+app.get("/api/health",async(_req,res)=>{
+  try { ok(res,{service:"LifeBridge Business MOS",phase:3,version:"3.0.0",database:"mysql",timestamp:new Date().toISOString()}); }
+  catch(e){ fail(res,e.message,500); }
 });
-app.get('/api/companies', (_, res) => res.json(db.prepare('SELECT * FROM companies ORDER BY name').all()));
-app.get('/api/customers', (_, res) => res.json(db.prepare('SELECT * FROM customers ORDER BY name').all()));
-app.get('/api/products', (_, res) => res.json(db.prepare('SELECT * FROM products ORDER BY name').all()));
-app.get('/api/invoices', (_, res) => res.json(db.prepare('SELECT * FROM invoices ORDER BY id DESC').all()));
 
-app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`LifeBridge Business MOS running on ${port}`));
+app.get("/api/dashboard",async(_req,res)=>{
+  try { ok(res,await db.dashboard()); } catch(e){ fail(res,e.message,500); }
+});
+
+for (const route of ["companies","gst-registrations","customers","vendors","products"]) {
+  app.get(`/api/${route}`,async(_req,res)=>{
+    try { ok(res,await db.list(route)); } catch(e){ fail(res,e.message,500); }
+  });
+}
+
+app.get("/api/invoices",async(req,res)=>{
+  try { ok(res,await db.listInvoices(req.query)); } catch(e){ fail(res,e.message,500); }
+});
+
+app.get("/api/invoices/:id",async(req,res)=>{
+  try { ok(res,await db.getInvoice(req.params.id)); } catch(e){ fail(res,e.message,404); }
+});
+
+app.post("/api/invoices",async(req,res)=>{
+  try { ok(res,await db.createInvoice(req.body),201); } catch(e){ fail(res,e.message,400); }
+});
+
+app.post("/api/invoices/:id/payments",async(req,res)=>{
+  try { ok(res,await db.addPayment(req.params.id,req.body),201); } catch(e){ fail(res,e.message,400); }
+});
+
+app.get("/api/invoices/:id/print",async(req,res)=>{
+  try {
+    const invoice=await db.getInvoice(req.params.id);
+    res.send(db.printInvoiceHtml(invoice));
+  } catch(e) { res.status(404).send("Invoice not found"); }
+});
+
+app.get("*",(_req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
+
+const port=Number(process.env.PORT||3000);
+app.listen(port,()=>console.log(`LifeBridge Business MOS Phase 3 running on ${port}`));
