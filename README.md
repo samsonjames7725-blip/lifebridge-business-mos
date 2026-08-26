@@ -1,72 +1,30 @@
-# LifeBridge Business MOS — Unified Full Build
+# LifeBridge Business MOS — Phase 3 Billing
 
-This is the unified application foundation for LifeBridge MedTech.
+Phase 3 adds a working GST billing foundation on the Phase 2 MySQL master-data system.
 
 ## Included
 
-### Dashboard
-- Mobile responsive dashboard
-- Company/GSTIN context
-- Revenue, invoices, outstanding, GST and operations KPIs
-- AI command-center placeholder
-
-### Core
-- Companies
-- GST registrations
-- Branches
-- Users
-- Customers
-- Vendors
-- Products
-- HSN/SAC
-- Versioned GST rules
-- Audit log
-
-### Billing
-- Quotations
 - Sales invoices
-- Invoice lines
-- Invoice numbering by company and financial year
-- CGST / SGST / IGST
-- Place of supply
-- B2B / B2C classification
-- RCM fields
-- Credit notes / debit notes
-- Payments
-- Outstanding
-- Printable invoice
-
-### Inventory / Procurement
-- Purchase bills
-- Purchase lines
-- Stock balances
-- Stock ledger
-- Stock adjustments
-
-### GST
-- Versioned rule engine
-- Tax classification
-- RCM fields
-- GST summary
-- Transaction export
-- Audit events
-
-### Integration architecture
-- E-invoice integration queue
-- E-way bill integration queue
-- Provider-agnostic adapter status
-- Request/response/error storage
-- Retry-ready records
-
-## Important production note
-
-The application is designed so GST rules can be updated and versioned. It does NOT claim that it will automatically remain legally compliant with every future Indian GST change without an authoritative update process and validation against official GST/CBIC requirements.
-
-E-invoice and e-way bill adapters are intentionally provider-agnostic. Credentials and production API integration must be configured and validated with an authorised integration route before live filing.
+- Invoice line items
+- Automatic invoice numbering per company
+- Customer and product selection
+- CGST + SGST for intra-state sales
+- IGST for inter-state sales
+- GST rate per product
+- Taxable value calculation
+- Discount calculation
+- Payment recording
+- Outstanding balance
+- Invoice status
+- Printable GST invoice page
+- Invoice API
+- Dashboard billing metrics
+- Multi-company and multi-GSTIN ready schema
+- Audit log
 
 ## MySQL
 
-Set these environment variables:
+Set:
 
 DB_HOST
 DB_PORT
@@ -74,15 +32,31 @@ DB_NAME
 DB_USER
 DB_PASSWORD
 
-The application creates its tables automatically. It does not drop existing tables.
+The application creates the Phase 2 and Phase 3 tables automatically.
 
-## Run
+## API
 
-npm install
-npm start
+GET /api/health
+GET /api/dashboard
+GET /api/companies
+GET /api/gst-registrations
+GET /api/customers
+GET /api/products
+GET /api/invoices
+POST /api/invoices
+GET /api/invoices/:id
+POST /api/invoices/:id/payments
+GET /api/invoices/:id/print
 
-Open http://localhost:3000
+## Tax behavior
 
-## Deployment
+The invoice endpoint calculates GST from the product GST rate and compares the selected seller GST state with the customer's state.
 
-Use the same environment variables in Vercel/Hostinger. Never commit database passwords.
+- Same state: CGST + SGST
+- Different state: IGST
+
+This is a billing-engine foundation, not a claim of automatic legal compliance with every future GST change. GST rules should be validated and updated from authoritative government sources before production use.
+
+## Phase 4
+
+Purchases, inventory movement, credit/debit notes, e-invoice/e-way-bill integration architecture, GST reports and accounting.
