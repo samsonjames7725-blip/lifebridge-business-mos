@@ -1,4 +1,14 @@
-node_modules/
-.env
-.vercel/
+node_modules
+.next
+out
+build
+coverage
 .DS_Store
+*.pem
+npm-debug.log*
+.env
+.env.local
+.env.*.local
+.vercel
+*.tsbuildinfo
+next-env.d.ts
