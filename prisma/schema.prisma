@@ -1,0 +1,376 @@
+// LIFEBridge MedTech — Business OS + GST DAS (core schema)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id                 String   @id @default(cuid())
+  legalName          String
+  tradeName          String?
+  companyType        String?
+  pan                String?
+  email              String?
+  phone              String?
+  address            String?  @db.Text
+  city               String?
+  state              String?
+  stateCode          String?
+  country            String   @default("IN")
+  pincode            String?
+  currency           String   @default("INR")
+  financialYearStart Int      @default(4)
+  status             String   @default("ACTIVE")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  gstRegistrations  GstRegistration[]
+  branches          Branch[]
+  users             UserCompany[]
+  customers         Customer[]
+  vendors           Vendor[]
+  products          Product[]
+  quotations        Quotation[]
+  salesOrders       SalesOrder[]
+  invoices          Invoice[]
+  purchaseOrders    PurchaseOrder[]
+  gstTransactions   GstTransaction[]
+  documentSequences DocumentSequence[]
+  auditLogs         AuditLog[]
+  integrationQueues IntegrationQueue[]
+
+  @@map("companies")
+}
+
+model GstRegistration {
+  id              String    @id @default(cuid())
+  companyId       String
+  gstin           String
+  legalName       String
+  tradeName       String?
+  stateCode       String
+  stateName       String
+  status          String    @default("ACTIVE")
+  isPrimary       Boolean   @default(false)
+  eInvoiceEnabled Boolean   @default(false)
+  ewayBillEnabled Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branches        Branch[]
+  invoices        Invoice[]
+  gstTransactions GstTransaction[]
+  documentSequences DocumentSequence[]
+  @@unique([companyId, gstin])
+  @@map("gst_registrations")
+}
+
+model Branch {
+  id                String   @id @default(cuid())
+  companyId         String
+  gstRegistrationId String?
+  branchCode        String
+  branchName        String
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  gstRegistration   GstRegistration? @relation(fields: [gstRegistrationId], references: [id])
+  invoices          Invoice[]
+  salesOrders       SalesOrder[]
+  quotations        Quotation[]
+  gstTransactions   GstTransaction[]
+  @@unique([companyId, branchCode])
+  @@map("branches")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String?
+  status       String    @default("ACTIVE")
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  companies    UserCompany[]
+  userRoles    UserRole[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("sessions")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  rolePermissions RolePermission[]
+  userRoles   UserRole[]
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  module      String
+  description String?
+  createdAt   DateTime @default(now())
+  rolePermissions RolePermission[]
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  companyId String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  @@unique([userId, roleId, companyId])
+  @@map("user_roles")
+}
+
+model UserCompany {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  isDefault Boolean  @default(false)
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  @@unique([userId, companyId])
+  @@map("user_companies")
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  companyId    String
+  customerCode String
+  legalName    String
+  tradeName    String?
+  customerType String
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices     Invoice[]
+  quotations   Quotation[]
+  salesOrders  SalesOrder[]
+  @@unique([companyId, customerCode])
+  @@map("customers")
+}
+
+model Vendor {
+  id         String   @id @default(cuid())
+  companyId  String
+  vendorCode String
+  legalName  String
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+  @@unique([companyId, vendorCode])
+  @@map("vendors")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  companyId String
+  sku       String
+  name      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  @@unique([companyId, sku])
+  @@map("products")
+}
+
+model DocumentSequence {
+  id                String @id @default(cuid())
+  companyId         String
+  gstRegistrationId String?
+  branchId          String?
+  documentType      String
+  financialYear     String
+  prefix            String
+  nextNumber        Int    @default(1)
+  padding           Int    @default(5)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  company           Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  gstRegistration   GstRegistration? @relation(fields: [gstRegistrationId], references: [id])
+  @@unique([companyId, gstRegistrationId, branchId, documentType, financialYear])
+  @@map("document_sequences")
+}
+
+model Quotation {
+  id              String   @id @default(cuid())
+  companyId       String
+  branchId        String?
+  customerId      String
+  quotationNumber String
+  quotationDate   DateTime
+  status          String   @default("DRAFT")
+  grandTotal      Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch          Branch?  @relation(fields: [branchId], references: [id])
+  customer        Customer @relation(fields: [customerId], references: [id])
+  @@unique([companyId, quotationNumber])
+  @@map("quotations")
+}
+
+model SalesOrder {
+  id          String   @id @default(cuid())
+  companyId   String
+  branchId    String?
+  customerId  String
+  orderNumber String
+  orderDate   DateTime
+  status      String   @default("DRAFT")
+  grandTotal  Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch      Branch?  @relation(fields: [branchId], references: [id])
+  customer    Customer @relation(fields: [customerId], references: [id])
+  invoices    Invoice[]
+  @@unique([companyId, orderNumber])
+  @@map("sales_orders")
+}
+
+model Invoice {
+  id                String   @id @default(cuid())
+  companyId         String
+  gstRegistrationId String
+  branchId          String?
+  customerId        String
+  salesOrderId      String?
+  invoiceNumber     String
+  invoiceDate       DateTime
+  status            String   @default("DRAFT")
+  supplyType        String?
+  isInterState      Boolean  @default(false)
+  taxableValue      Decimal  @default(0) @db.Decimal(18, 2)
+  cgstAmount        Decimal  @default(0) @db.Decimal(18, 2)
+  sgstAmount        Decimal  @default(0) @db.Decimal(18, 2)
+  igstAmount        Decimal  @default(0) @db.Decimal(18, 2)
+  cessAmount        Decimal  @default(0) @db.Decimal(18, 2)
+  grandTotal        Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  gstRegistration   GstRegistration @relation(fields: [gstRegistrationId], references: [id])
+  branch            Branch?  @relation(fields: [branchId], references: [id])
+  customer          Customer @relation(fields: [customerId], references: [id])
+  salesOrder        SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  @@unique([companyId, invoiceNumber])
+  @@map("invoices")
+}
+
+model PurchaseOrder {
+  id          String   @id @default(cuid())
+  companyId   String
+  vendorId    String
+  orderNumber String
+  orderDate   DateTime
+  status      String   @default("DRAFT")
+  grandTotal  Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  @@unique([companyId, orderNumber])
+  @@map("purchase_orders")
+}
+
+model GstTransaction {
+  id                String   @id @default(cuid())
+  companyId         String
+  gstRegistrationId String
+  branchId          String?
+  documentType      String
+  documentId        String
+  documentNumber    String
+  documentDate      DateTime
+  taxableValue      Decimal  @db.Decimal(18, 2)
+  cgst              Decimal  @default(0) @db.Decimal(18, 2)
+  sgst              Decimal  @default(0) @db.Decimal(18, 2)
+  igst              Decimal  @default(0) @db.Decimal(18, 2)
+  cess              Decimal  @default(0) @db.Decimal(18, 2)
+  totalTax          Decimal  @db.Decimal(18, 2)
+  status            String   @default("POSTED")
+  createdAt         DateTime @default(now())
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  gstRegistration   GstRegistration @relation(fields: [gstRegistrationId], references: [id])
+  branch            Branch?  @relation(fields: [branchId], references: [id])
+  @@map("gst_transactions")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String?
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+  company    Company? @relation(fields: [companyId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id])
+  @@map("audit_logs")
+}
+
+model IntegrationQueue {
+  id              String   @id @default(cuid())
+  companyId       String
+  integrationType String
+  entityType      String
+  entityId        String
+  status          String   @default("QUEUED")
+  requestPayload  Json?
+  responsePayload Json?
+  attemptCount    Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  @@map("integration_queues")
+}
